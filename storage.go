@@ -1,26 +1,22 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"github.com/garyburd/redigo/redis"
 	"encoding/json"
 )
 
-type RedisClient struct {
-	conn redis.Conn
-	redis.PubSubConn
-}
-
-func getMessageForIpad(hub *hub) {
-	host := "127.0.0.1:6379"
+// read messages from redis and send it to ipad
+func getMessageFromServer(hub *hub) {
+	host := REDIS_ADDR
 	c, _ := redis.Dial("tcp", host)
 
 	psc := redis.PubSubConn{c}
-	psc.Subscribe("example")
+	psc.Subscribe(REDIS_CHANEL_TO_IPADS)
 	for {
 		switch v := psc.Receive().(type) {
 		case redis.Message:
-			fmt.Printf("REDIS SUBCRIPTION: Channel: %s; message: %s\n", v.Channel, v.Data)
+			log.Printf("REDIS SUBCRIPTION: Channel: %s; message: %s\n", v.Channel, v.Data)
 
 			var dat map[string]interface{}
 			if err := json.Unmarshal(v.Data, &dat); err != nil {
@@ -30,9 +26,15 @@ func getMessageForIpad(hub *hub) {
 			bodyMessage := dat["body"].(string)
 
 			mes := serverMessage{body: []byte(bodyMessage), ikey:ikey1}
-			h.broadcast <- mes
+			webSocketHub.messageToClients <- mes
 		case error:
-			//return v
 		}
 	}
+}
+
+//save message to redis
+func sendMessageToServer(message []byte) {
+	host := REDIS_ADDR
+	c, _ := redis.Dial("tcp", host)
+	c.Do("PUBLISH", REDIS_CHANEL_TO_SERVER, message)
 }

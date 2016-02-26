@@ -1,19 +1,21 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"net/http"
 )
 
-var addr = flag.String("addr", ":8080", "http service address")
 
 func main() {
-	flag.Parse()
-	go h.run()
-	go getMessageForIpad(&h)
+	//Run web socket hub
+	go webSocketHub.run()
+
+	//Get messages from redis and send it to the client
+	go getMessageFromServer(&webSocketHub)
+
+	//Listen HTTP to join clients
 	http.HandleFunc("/ws", serveWs)
-	err := http.ListenAndServe(*addr, nil)
+	err := http.ListenAndServe(WEBSOCKET_ADDR, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

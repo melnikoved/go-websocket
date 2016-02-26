@@ -2,23 +2,18 @@ package main
 
 import (
 	"log"
-
 )
 
-// hub maintains the set of active connections and broadcasts messages to the
-// connections.
 type hub struct {
-	// Registered connections.
-	connections map[string]*connection
+	connections      map[string]*connection
 
-	// Inbound messages from the connections.
-	broadcast chan serverMessage
+	messageToClients chan serverMessage
 
-	// Register requests from the connections.
-	register chan *connection
+	messageToServer  chan []byte
 
-	// Unregister requests from connections.
-	unregister chan *connection
+	register         chan *connection
+
+	unregister       chan *connection
 }
 
 type serverMessage struct {
@@ -26,36 +21,39 @@ type serverMessage struct {
 	ikey string
 }
 
-var h = hub{
-	broadcast:   make(chan serverMessage),
+var webSocketHub = hub{
+	messageToClients:   make(chan serverMessage),
+	messageToServer: make(chan []byte),
 	register:    make(chan *connection),
 	unregister:  make(chan *connection),
 	connections: make(map[string]*connection),
 }
 
-func (h *hub) run() {
+func (webSocketHub *hub) run() {
 	for {
 		select {
-		case c := <-h.register:
+		case c := <-webSocketHub.register:
 			log.Print("WEBSOCKET: Register with key ", c.ikey)
-			h.connections[c.ikey] = c
-		case c := <-h.unregister:
+			webSocketHub.connections[c.ikey] = c
+		case c := <-webSocketHub.unregister:
 			log.Print("WEBSOCKET: Unregister with key ", c.ikey)
-			if _, ok := h.connections[c.ikey]; ok {
-				delete(h.connections, c.ikey)
+			if _, ok := webSocketHub.connections[c.ikey]; ok {
+				delete(webSocketHub.connections, c.ikey)
 				close(c.send)
 			}
-		case m := <-h.broadcast:
-			log.Printf("WEBSOCKET: Message for key: %s with data: %s", m.ikey, m.body)
-			if c, ok := h.connections[m.ikey]; ok {
+		case m := <-webSocketHub.messageToClients:
+			log.Printf("WEBSOCKET OUTPUT: Message for key: %s with data: %s", m.ikey, m.body)
+			if c, ok := webSocketHub.connections[m.ikey]; ok {
 				select {
 				case c.send <- m:
 				default:
 					close(c.send)
-					delete(h.connections, c.ikey)
+					delete(webSocketHub.connections, c.ikey)
 				}
 			}
-
+		case m := <-webSocketHub.messageToServer:
+			log.Printf("WEBSOCKET INPUT: Message data: %s", m)
+			sendMessageToServer(m);
 		}
 	}
 }
