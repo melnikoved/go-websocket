@@ -22,10 +22,10 @@ func getMessageFromServer(hub *hub) {
 			if err := json.Unmarshal(v.Data, &dat); err != nil {
 				panic(err)
 			}
-			ikey1 := dat["ipadKey"].(string)
+			ikey := dat["ipadKey"].(string)
 			bodyMessage := dat["body"].(string)
 
-			mes := serverMessage{body: []byte(bodyMessage), ikey:ikey1}
+			mes := serverMessage{body: []byte(bodyMessage), ikey:ikey}
 			webSocketHub.messageToClients <- mes
 		case error:
 		}

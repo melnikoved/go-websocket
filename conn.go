@@ -97,7 +97,7 @@ func (c *connection) readPump() {
 
 // serveWs handles websocket requests from the peer.
 func serveWs(w http.ResponseWriter, r *http.Request) {
-	ikey := r.Header.Get("X-USER")
+	ikey := r.Header.Get("X-Auth-Token")
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
